@@ -1,0 +1,1050 @@
+.MODEL SMALL
+.STACK 256
+
+.DATA            
+ 
+ ASCIIART DB  "                                      ",13,10
+          DB  "                                      ",13,10
+          DB  "   ___           _    _   ___     _ _ ",13,10
+          DB  "  | _ \__ _ _ __(_)__| | | _ \___| | |",13,10
+          DB  "  |   / _` | '_ | | _` | |   / _ \ | |",13,10
+          DB  "  |_|_\__,_| .__|_|__,_| |_|_\___/_|_|",13,10
+          DB  "           |_|                         ",13,10, '$' 
+
+ MENUMSG DB 10,13,10,13,10,13,10,13,10,13,10,13,'       PRESIONA [J] PARA JUGAR',10,13,10,13
+         DB '       PRESIONA [I] PARA VER INFO.',10,13,10,13,10,13,10,13,10,13,10,13,'       << Made by Key & Keith >>$'
+
+ INFOMSG DB 10,13,10,13,' COMO JUGAR?'
+        db 10,13,10,13,10,13,' Eres un cubo cayendo por la'
+        db 10,13,' pantalla. Ganas puntos con cada'
+        db 10,13,' plataforma que superas durante'
+        db 10,13,' tu descenso.'
+        db 10,13,10,13,10,13,' COMO MOVERSE?'
+        db 10,13,10,13,10,13,' * Presiona [A] para ir a la izquierda'
+        db 10,13,10,13,' * Presiona [D] para ir a la derecha'
+        db 10,13,10,13,10,13,10,13,10,13,10,13,' <-Presiona cualquier tecla para salir$'
+      
+ FINALMSG1 DB 10,13,10,13,10,13,10,13,10,13,10,13,'            - GAME OVER -'
+           DB 10,13,10,13,10,13,10,13,10,13,10,13,10,13,'          TOTAL $'
+
+ FINALMSG2 DB 10,13,10,13,10,13,10,13,10,13,10,13,10,13,10,13,' << PRESIONA [R] PARA JUGAR OTRA VEZ >>$'
+
+ XCUBE DW 184 
+ X1CUBE DW ?
+ X2CUBE DW ?
+ YCUBE DW 50 
+ Y1CUBE DW ?  
+ Y2CUBE DW ?
+ 
+ XLINE DW 100
+ X1LINE DW ?
+ X2LINE DW ?
+ YLINE DW 190
+ Y1LINE DW ?  
+ Y2LINE DW ?
+ 
+ NXLINE DW 160 
+ NX1LINE DW ?
+ NX2LINE DW ?
+ NYLINE DW 70 
+ NY1LINE DW ?  
+ NY2LINE DW ?
+             
+ NNXLINE DW 30
+ NNX1LINE DW ?
+ NNX2LINE DW ?
+ NNYLINE DW 140
+ NNY1LINE DW ?  
+ NNY2LINE DW ?   
+ 
+ NNNXLINE DW 230
+ NNNX1LINE DW ?
+ NNNX2LINE DW ?
+ NNNYLINE DW 100
+ NNNY1LINE DW ?  
+ NNNY2LINE DW ?
+             
+ CHECK DW 1
+ RANDNUMBER dw 0 
+ TIK DW ?
+  
+ CHECK_UND DB 0
+ NCHECK_UND DB 0 
+ NNCHECK_UND DB 0 
+ NNNCHECK_UND DB 0 
+ 
+ BORDERX DW 2
+ BORDERY DW 13
+              
+ SCORE     DW 4
+ SCORE_MSG DB 'SCORE: ', '00000', '$'
+ COUNT DW 0
+  
+.CODE 
+
+MAIN PROC
+    MOV AX,@DATA
+    MOV DS,AX 
+    
+    ;GRAPHIC MODE
+    MOV AX,13H
+    INT 10H
+
+    CALL MAIN_MENU
+    CALL GAME
+       
+    MOV AH,4CH
+    INT 21H
+MAIN ENDP
+
+; =============================
+; INICIALIZACIÓN DEL JUEGO
+; =============================
+
+MAIN_MENU PROC
+    MPR:
+    MOV AH,9
+    MOV DX,OFFSET ASCIIART
+    INT 21h
+    LEA DX,MENUMSG
+    INT 21H
+    
+    LOOPP:
+    MOV AH,7
+    INT 21H
+    CMP AL,'J'
+    JE STG
+    CMP AL,'j'
+    JE STG
+    CMP AL,'I'
+    JE  INSTRUC
+    CMP AL,'i'
+    JE  INSTRUC
+    JMP LOOPP
+    
+    INSTRUC:
+    CALL RESET_THE_SCREEN
+    
+    MOV AH,9
+    LEA DX,INFOMSG
+    INT 21H
+    
+    MOV AH,1
+    INT 21H
+    
+    CALL RESET_THE_SCREEN
+     
+    JMP MPR
+    
+    STG:
+    CALL RESET_THE_SCREEN
+    JMP GAME 
+    RET
+MAIN_MENU ENDP
+
+RESET_THE_SCREEN PROC
+    MOV AH,0
+    MOV AL,2
+    INT 10H
+    MOV AX,13H
+    INT 10H
+    RET
+RESET_THE_SCREEN ENDP
+
+PLAY_AGAIN PROC
+    MOV XCUBE, 184
+    MOV YCUBE, 50
+ 
+    MOV XLINE, 100
+    MOV YLINE, 190
+ 
+    MOV NXLINE, 160
+    MOV NYLINE, 70
+             
+    MOV NNXLINE, 30
+    MOV NNYLINE, 140
+ 
+    MOV NNNXLINE, 230
+    MOV NNNYLINE, 100
+
+    MOV SCORE, 4
+    CALL UPDATE_SCORE_MSG
+    RET
+PLAY_AGAIN ENDP
+
+GAME PROC
+    GAME_START:
+ 
+    MOV AH,1
+    INT 16H
+    
+    JZ NOKEYPRESS
+    JNZ KEYPRESS
+    
+    NOKEYPRESS:
+    CALL NEXT_XLINE
+    CALL NEXT_NXLINE
+    CALL NEXT_NNXLINE
+    CALL NEXT_NNNXLINE
+    CALL GENERATE_RANDOM_NUMBER
+    
+    CALL BORDER
+    CALL DRAWCUBE
+    CALL DRAWLINE
+    CALL DRAWNLINE
+    CALL DRAWNNLINE
+    CALL DRAWNNNLINE
+    
+    CALL DELAY
+               
+    CALL REMOVECUBE
+    CALL RMVLINE
+    CALL RMVNLINE
+    CALL RMVNNLINE
+    CALL RMVNNNLINE
+    JMP AGAIN 
+    
+    KEYPRESS:
+    MOV AH,0
+    INT 16H
+    CMP AL,'A'
+    JE MOVELEFT
+    CMP AL,'a'
+    JE MOVELEFT
+    CMP AL,'D'
+    JE MOVERIGHT
+    CMP AL,'d'
+    JE MOVERIGHT
+    JMP AGAIN
+    
+    MOVELEFT:
+    SUB XCUBE,2
+    SUB X2CUBE,2
+    JMP AGAIN 
+     
+    MOVERIGHT:
+    ADD XCUBE,2
+    ADD X2CUBE,2
+    
+    AGAIN:
+    CALL CHECK_UP_OR_DOWN
+    CALL NCHECK_UP_OR_DOWN
+    CALL NNCHECK_UP_OR_DOWN
+    CALL NNNCHECK_UP_OR_DOWN
+    CMP CHECK_UND,1
+    JE AGAIN1
+    CMP NCHECK_UND,1
+    JE AGAIN1
+    CMP NNCHECK_UND,1
+    JE AGAIN1
+    CMP NNNCHECK_UND,1
+    JE AGAIN1
+    
+    INC YCUBE 
+
+    AGAIN2:
+    DEC YLINE
+    DEC NYLINE
+    DEC NNYLINE
+    DEC NNNYLINE
+    CMP YCUBE,198
+    JE EXIT
+    CMP YCUBE,19
+    JE EXIT
+    JMP GAME_START
+    
+    AGAIN1:
+    DEC YCUBE
+    JMP AGAIN2
+    EXIT:
+    CALL GAME_OVER 
+    MOV AH,1
+    INT 21H
+              
+    MOV AH,0
+    MOV AL,2
+    INT 10H
+    RET
+GAME ENDP
+
+GAME_OVER PROC
+    CALL RESET_THE_SCREEN
+    CALL UPDATE_SCORE_MSG
+    
+    MOV AH,9
+    LEA DX,FINALMSG1
+    INT 21H 
+    
+    MOV AH, 9
+    LEA DX,SCORE_MSG
+    INT 21H
+    
+    GLO1:
+    MOV AH,9
+    LEA DX,FINALMSG2
+    INT 21H
+    
+    AGA:
+    MOV AH,7
+    INT 21H
+    CMP AL,'R'
+    JE DIDA
+    CMP AL,'r'     
+    JE DIDA
+    JMP AGA
+    
+    DIDA:
+    CALL RESET_THE_SCREEN
+    CALL PLAY_AGAIN
+    CALL GAME
+    
+    GGG:
+    RET
+GAME_OVER ENDP
+
+; =============================
+; INTERFAZ VISUAL
+; =============================
+
+BORDER PROC
+    BOR:
+    MOV AH,0CH
+    MOV AL,0Fh ;COLOR DEL BORDE (1/4)
+    MOV CX,BORDERX
+    MOV DX,BORDERY
+    INT 10H
+    INC BORDERX
+    CMP BORDERX,319
+    JE NNP
+    JMP BOR
+    
+    NNP:
+    MOV BORDERX,2
+    MOV BORDERY,195
+    BOR1:
+    MOV AH,0CH
+    MOV AL,0Fh ;COLOR DEL BORDE (2/4)
+    MOV CX,BORDERX
+    MOV DX,BORDERY
+    INT 10H
+    INC BORDERX
+    CMP BORDERX,319
+    JE NNP1
+    JMP BOR1
+    
+    NNP1:
+    MOV BORDERX,2
+    MOV BORDERY,13
+    BOR2:
+    MOV AH,0CH
+    MOV AL,0Fh ;COLOR DEL BORDE (3/4)
+    MOV CX,BORDERX
+    MOV DX,BORDERY
+    INT 10H
+    INC BORDERY
+    CMP BORDERY,195
+    JE NNP2
+    JMP BOR2
+    
+    NNP2:
+    MOV BORDERX,319
+    MOV BORDERY,13
+    BOR3:
+    MOV AH,0CH
+    MOV AL,0Fh ;COLOR DEL BORDE (4/4)
+    MOV CX,BORDERX
+    MOV DX,BORDERY
+    INT 10H
+    INC BORDERY
+    CMP BORDERY,196
+    JE DADA
+    JMP BOR3
+    
+    DADA:
+    MOV BORDERX,2
+    MOV BORDERY,13
+    RET
+BORDER ENDP
+
+; =============================
+; ACTUALIZACIÓN DEL PUNTAJE
+; =============================
+
+UPDATE_SCORE_MSG PROC
+    MOV AX, SCORE       
+    MOV BX, 10
+    MOV SI, 12 ; Posición desde el final de los dígitos en SCORE_MSG (SCORE_MSG+12)
+    MOV COUNT, 0
+
+    CMP AX, 0
+    JNE TO_DEC
+    
+    MOV CX, 5
+    MOV DI, 7 ; SCORE_MSG+7 es donde empiezan los dígitos
+
+    FILL_ZERO:
+    MOV BYTE PTR [SCORE_MSG + DI], '0'
+    INC DI
+    LOOP FILL_ZERO
+    JMP DONE
+
+    TO_DEC:
+        CONVERT:
+        XOR DX, DX
+        DIV BX
+        ADD DL, '0'
+        DEC SI
+        MOV [SCORE_MSG + SI], DL
+        INC COUNT
+        CMP AX, 0
+        JNE CONVERT
+
+    MOV CX, SI
+    MOV DI, 7
+    SUB CX, DI
+    JZ DONE
+
+    FILL_LEFT_ZERO:
+    MOV BYTE PTR [SCORE_MSG + DI], '0'
+    INC DI
+    LOOP FILL_LEFT_ZERO
+
+    DONE:
+    RET
+UPDATE_SCORE_MSG ENDP
+
+; =============================
+; CUBO DEL JUGADOR
+; =============================
+
+DRAWCUBE PROC 
+    MOV BX,XCUBE
+    MOV X1CUBE,BX
+    MOV X2CUBE,BX
+    ADD X1CUBE,7
+    
+    MOV BX,YCUBE
+    MOV Y1CUBE,BX
+    MOV Y2CUBE,BX
+    SUB Y1CUBE,7
+
+    LUP:
+    MOV AH,0CH
+    MOV AL,0DH ;COLOR DEL CUBO [MORADO]
+    MOV CX,XCUBE
+    MOV DX,YCUBE
+    INT 10H
+    INC XCUBE
+    MOV BX,X1CUBE
+    CMP XCUBE,BX
+    JLE LUP
+    MOV BX,X2CUBE
+    MOV XCUBE,BX
+    DEC YCUBE
+    MOV BX,Y1CUBE
+    CMP YCUBE,BX
+    JNE LUP
+    
+    RET
+DRAWCUBE ENDP
+
+REMOVECUBE PROC  
+    MOV BX,X2CUBE          
+    MOV XCUBE,BX
+    
+    MOV BX,XCUBE
+    MOV X1CUBE,BX
+    MOV X2CUBE,BX
+    ADD X1CUBE,7
+    
+    MOV BX,Y2CUBE
+    MOV YCUBE,BX
+
+    L1:
+    MOV AH,0CH
+    MOV AL,0
+    MOV CX,XCUBE
+    MOV DX,YCUBE
+    INT 10H
+    INC XCUBE
+    MOV BX,X1CUBE
+    CMP XCUBE,BX
+    JLE L1
+    
+    MOV BX,X2CUBE
+    MOV XCUBE,BX
+    DEC YCUBE
+    
+    MOV BX,Y1CUBE
+    CMP YCUBE,BX
+    JNE L1
+    
+    MOV BX,X2CUBE
+    MOV XCUBE,BX
+    MOV BX,Y2CUBE
+    MOV YCUBE,BX 
+           
+    RET     
+REMOVECUBE ENDP
+
+; =============================
+; LINEAS: GENERACIÓN ALEATORIA
+; =============================
+
+GENERATE_RANDOM_NUMBER PROC 
+    PUSHALL MACRO
+    PUSH AX
+    PUSH BX
+    PUSH CX
+    PUSH DX
+    ENDM
+
+    POPALL MACRO
+    POP DX
+    POP CX
+    POP BX
+    POP AX
+    ENDM
+    
+    GETRAND MACRO CUR 
+    PUSHALL
+    MOV AH, 0
+    INT 1AH
+    
+    MOV AX, DX
+    MOV DX, CX
+    
+    MOV BX, 7261
+    MUL AX
+    ADD AX, 1
+    MOV DX, 0
+    MOV BX, 200
+    DIV BX
+    
+    MOV CUR, DX
+    POPALL
+    ENDM    
+    
+    MOV CX, 0
+    GETRAND RANDNUMBER
+    
+    RET        
+GENERATE_RANDOM_NUMBER ENDP
+
+; =============================
+; LINEAS: DIBUJO Y BORRADO
+; =============================
+
+DRAWLINE PROC
+    MOV BX,XLINE
+    MOV X1LINE,BX
+    MOV X2LINE,BX
+    ADD X1LINE,40
+    
+    MOV BX,YLINE
+    MOV Y1LINE,BX
+    MOV Y2LINE,BX
+    SUB Y1LINE,3
+    
+    LINE:
+    MOV AH,0CH
+    MOV AL,6 ;COLOR LINEA 1 [NARANJA]
+    MOV CX,XLINE
+    MOV DX,YLINE
+    INT 10H
+    INC XLINE
+    MOV BX,X1LINE
+    CMP XLINE,BX
+    JLE LINE
+    
+    MOV BX,X2LINE
+    MOV XLINE,BX
+    DEC YLINE
+    MOV BX,Y1LINE
+    CMP YLINE,BX
+    JNE LINE
+    
+    RET
+DRAWLINE ENDP
+ 
+RMVLINE PROC 
+    MOV BX,XLINE
+    MOV X1LINE,BX
+    MOV X2LINE,BX
+    ADD X1LINE,40
+               
+    MOV XLINE,BX
+    MOV BX,Y2LINE
+    MOV YLINE,BX
+
+    LINE1:
+    MOV AH,0CH
+    MOV AL,0
+    MOV CX,XLINE
+    MOV DX,YLINE
+    INT 10H
+    INC XLINE
+    MOV BX,X1LINE
+    CMP XLINE,BX
+    JLE LINE1 
+    
+    MOV BX,X2LINE
+    MOV XLINE,BX
+    DEC YLINE
+    MOV BX,Y1LINE
+    CMP YLINE,BX
+    JNE LINE1
+    
+    MOV BX,X2LINE
+    MOV XLINE,BX
+    MOV BX,Y2LINE
+    MOV YLINE,BX 
+           
+    RET   
+RMVLINE ENDP
+
+DRAWNLINE PROC
+    MOV BX,NXLINE
+    MOV NX1LINE,BX
+    MOV NX2LINE,BX
+    ADD NX1LINE,40
+    
+    MOV BX,NYLINE
+    MOV NY1LINE,BX
+    MOV NY2LINE,BX
+    SUB NY1LINE,3
+    
+    NLINE:
+    MOV AH,0CH
+    MOV AL,0Bh ;COLOR LINEA 2 [CIAN]
+    MOV CX,NXLINE
+    MOV DX,NYLINE
+    INT 10H
+    INC NXLINE
+    MOV BX,NX1LINE
+    CMP NXLINE,BX
+    JLE NLINE
+    
+    MOV BX,NX2LINE
+    MOV NXLINE,BX
+    DEC NYLINE
+    MOV BX,NY1LINE
+    CMP NYLINE,BX
+    JNE NLINE
+     
+    RET
+DRAWNLINE ENDP 
+ 
+RMVNLINE PROC 
+    MOV BX,NXLINE
+    MOV NX1LINE,BX
+    MOV NX2LINE,BX
+    ADD NX1LINE,40
+               
+    MOV NXLINE,BX
+    MOV BX,NY2LINE
+    MOV NYLINE,BX
+
+    NLINE1:
+    MOV AH,0CH
+    MOV AL,0
+    MOV CX,NXLINE
+    MOV DX,NYLINE
+    INT 10H
+    INC NXLINE
+    MOV BX,NX1LINE
+    CMP NXLINE,BX
+    JLE NLINE1 
+    
+    MOV BX,NX2LINE
+    MOV NXLINE,BX
+    DEC NYLINE
+    MOV BX,NY1LINE
+    CMP NYLINE,BX
+    JNE NLINE1
+    
+    MOV BX,NX2LINE
+    MOV NXLINE,BX
+    MOV BX,NY2LINE
+    MOV NYLINE,BX 
+           
+    RET   
+RMVNLINE ENDP
+
+DRAWNNLINE PROC
+    MOV BX,NNXLINE
+    MOV NNX1LINE,BX
+    MOV NNX2LINE,BX
+    ADD NNX1LINE,40
+    
+    MOV BX,NNYLINE
+    MOV NNY1LINE,BX
+    MOV NNY2LINE,BX
+    SUB NNY1LINE,3
+    
+    NNLINE:
+    MOV AH,0CH
+    MOV AL,0Eh ;COLOR LINEA 3 [AMARILLO]
+    MOV CX,NNXLINE
+    MOV DX,NNYLINE
+    INT 10H
+    INC NNXLINE
+    MOV BX,NNX1LINE
+    CMP NNXLINE,BX
+    JLE NNLINE
+    
+    MOV BX,NNX2LINE
+    MOV NNXLINE,BX
+    DEC NNYLINE
+    MOV BX,NNY1LINE
+    CMP NNYLINE,BX
+    JNE NNLINE
+    
+    NNDIDI:
+    RET
+DRAWNNLINE ENDP
+ 
+RMVNNLINE PROC 
+    MOV BX,NNXLINE
+    MOV NNX1LINE,BX
+    MOV NNX2LINE,BX
+    ADD NNX1LINE,40
+               
+    MOV NNXLINE,BX
+    MOV BX,NNY2LINE
+    MOV NNYLINE,BX
+
+    NNLINE1:
+    MOV AH,0CH
+    MOV AL,0
+    MOV CX,NNXLINE
+    MOV DX,NNYLINE
+    INT 10H
+    INC NNXLINE
+    MOV BX,NNX1LINE
+    CMP NNXLINE,BX
+    JLE NNLINE1 
+    
+    MOV BX,NNX2LINE
+    MOV NNXLINE,BX
+    DEC NNYLINE
+    MOV BX,NNY1LINE
+    CMP NNYLINE,BX
+    JNE NNLINE1
+    
+    MOV BX,NNX2LINE
+    MOV NNXLINE,BX
+    MOV BX,NNY2LINE
+    MOV NNYLINE,BX 
+           
+    RET   
+RMVNNLINE ENDP
+
+DRAWNNNLINE PROC
+    MOV BX,NNNXLINE
+    MOV NNNX1LINE,BX
+    MOV NNNX2LINE,BX
+    ADD NNNX1LINE,40
+    
+    MOV BX,NNNYLINE
+    MOV NNNY1LINE,BX
+    MOV NNNY2LINE,BX
+    SUB NNNY1LINE,3
+    
+    NNNLINE:
+    MOV AH,0CH
+    MOV AL,02h ;COLOR LINEA 4 [VERDE]
+    MOV CX,NNNXLINE
+    MOV DX,NNNYLINE
+    INT 10H
+    INC NNNXLINE
+    MOV BX,NNNX1LINE
+    CMP NNNXLINE,BX
+    JLE NNNLINE
+    
+    MOV BX,NNNX2LINE
+    MOV NNNXLINE,BX
+    DEC NNNYLINE
+    MOV BX,NNNY1LINE
+    CMP NNNYLINE,BX
+    JNE NNNLINE
+    
+    NNNDIDI:
+    RET
+DRAWNNNLINE ENDP
+ 
+RMVNNNLINE PROC 
+    MOV BX,NNNXLINE
+    MOV NNNX1LINE,BX
+    MOV NNNX2LINE,BX
+    ADD NNNX1LINE,40
+               
+    MOV NNNXLINE,BX
+    MOV BX,NNNY2LINE
+    MOV NNNYLINE,BX
+
+    NNNLINE1:
+    MOV AH,0CH
+    MOV AL,0
+    MOV CX,NNNXLINE
+    MOV DX,NNNYLINE
+    INT 10H
+    INC NNNXLINE
+    MOV BX,NNNX1LINE
+    CMP NNNXLINE,BX
+    JLE NNNLINE1 
+    
+    MOV BX,NNNX2LINE
+    MOV NNNXLINE,BX
+    DEC NNNYLINE
+    MOV BX,NNNY1LINE
+    CMP NNNYLINE,BX
+    JNE NNNLINE1
+    
+    MOV BX,NNNX2LINE
+    MOV NNNXLINE,BX
+    MOV BX,NNNY2LINE
+    MOV NNNYLINE,BX 
+           
+    RET   
+RMVNNNLINE ENDP
+
+; =============================
+; LINEAS: DETECCIÓN DE COLISIÓN
+; =============================
+
+CHECK_UP_OR_DOWN PROC  
+    MOV BX,YLINE
+    SUB BX,4
+    CMP YCUBE,BX
+    JE NEXTPHASE
+    DEC BX     
+    CMP YCUBE,BX
+    JE  NEXTPHASE  
+    MOV CHECK_UND,0
+    JMP DID
+    
+    NEXTPHASE:
+    MOV BX,XLINE
+    ADD BX,42
+    CMP XCUBE,BX
+    JL NEXTPHASE1
+    MOV CHECK_UND,0
+    JMP DID
+    
+    NEXTPHASE1:
+    MOV BX,XLINE
+    SUB BX,9
+    CMP BX,XCUBE
+    JL LASTPHASE
+    MOV CHECK_UND,0
+    JMP DID
+    
+    LASTPHASE:
+    MOV CHECK_UND,1
+    
+    DID:
+    RET
+CHECK_UP_OR_DOWN ENDP
+
+NCHECK_UP_OR_DOWN PROC
+    MOV BX,NYLINE
+    SUB BX,4
+    CMP YCUBE,BX
+    JE  NNEXTPHASE
+    DEC BX     
+    CMP YCUBE,BX
+    JE  NNEXTPHASE  
+    MOV NCHECK_UND,0
+    JMP NDID
+    
+    NNEXTPHASE:
+    MOV BX,NXLINE
+    ADD BX,42
+    CMP XCUBE,BX
+    JL NNEXTPHASE1
+    MOV NCHECK_UND,0
+    JMP NDID
+    
+    NNEXTPHASE1:
+    MOV BX,NXLINE
+    SUB BX,9
+    CMP BX,XCUBE
+    JL NLASTPHASE
+    MOV NCHECK_UND,0
+    JMP NDID
+    
+    NLASTPHASE:
+    MOV NCHECK_UND,1
+    
+    NDID:
+    RET
+NCHECK_UP_OR_DOWN ENDP
+
+NNCHECK_UP_OR_DOWN PROC
+    MOV BX,NNYLINE
+    SUB BX,4
+    CMP YCUBE,BX
+    JE NNNEXTPHASE
+    DEC BX     
+    CMP YCUBE,BX
+    JE  NNNEXTPHASE  
+    MOV NNCHECK_UND,0
+    JMP NNDID
+    
+    NNNEXTPHASE:
+    MOV BX,NNXLINE
+    ADD BX,42
+    CMP XCUBE,BX
+    JL NNNEXTPHASE1
+    MOV NNCHECK_UND,0
+    JMP NNDID
+    
+    NNNEXTPHASE1:
+    MOV BX,NNXLINE
+    SUB BX,9
+    CMP BX,XCUBE
+    JL NNLASTPHASE
+    MOV NNCHECK_UND,0
+    JMP NNDID
+    
+    NNLASTPHASE:
+    MOV NNCHECK_UND,1
+    
+    NNDID:
+    RET
+NNCHECK_UP_OR_DOWN ENDP
+
+NNNCHECK_UP_OR_DOWN PROC
+    MOV BX,NNNYLINE
+    SUB BX,4
+    CMP YCUBE,BX
+    JE NNNNEXTPHASE
+    DEC BX     
+    CMP YCUBE,BX
+    JE  NNNNEXTPHASE  
+    MOV NNNCHECK_UND,0
+    JMP NNNDID
+    
+    NNNNEXTPHASE:
+    MOV BX,NNNXLINE
+    ADD BX,42
+    CMP XCUBE,BX
+    JL NNNNEXTPHASE1
+    MOV NNNCHECK_UND,0
+    JMP NNNDID
+    
+    NNNNEXTPHASE1:
+    MOV BX,NNNXLINE
+    SUB BX,9
+    CMP BX,XCUBE
+    JL NNNLASTPHASE
+    MOV NNNCHECK_UND,0
+    JMP NNNDID
+    
+    NNNLASTPHASE:
+    MOV NNNCHECK_UND,1
+    
+    NNNDID:
+    RET
+NNNCHECK_UP_OR_DOWN ENDP
+
+; =============================
+; LINEAS: RENOVACIÓN
+; =============================
+
+NEXT_XLINE PROC
+    CMP YLINE,15
+    JGE NOCHANGE
+    MOV YLINE,196
+    MOV Y2LINE,196 
+    
+    MOV BX,RANDNUMBER
+    MOV XLINE,BX
+    MOV X1LINE,BX 
+
+    INC SCORE
+    CALL UPDATE_SCORE_MSG
+    
+    NOCHANGE:
+    RET
+NEXT_XLINE ENDP
+
+NEXT_NXLINE PROC
+    CMP NYLINE,15
+    JGE NNOCHANGE
+    MOV NYLINE,196
+    MOV NY2LINE,196 
+    
+    MOV BX,RANDNUMBER
+    MOV NXLINE,BX
+    MOV NX1LINE,BX 
+
+    INC SCORE
+    CALL UPDATE_SCORE_MSG
+    
+    NNOCHANGE:
+    RET
+NEXT_NXLINE ENDP
+
+NEXT_NNXLINE PROC    
+    CMP NNYLINE,15
+    JGE NNNOCHANGE
+    MOV NNYLINE,196
+    MOV NNY2LINE,196 
+    
+    MOV BX,RANDNUMBER
+    MOV NNXLINE,BX
+    MOV NNX1LINE,BX 
+
+    INC SCORE
+    CALL UPDATE_SCORE_MSG
+    
+    NNNOCHANGE:
+    RET
+NEXT_NNXLINE ENDP
+
+NEXT_NNNXLINE PROC    
+    CMP NNNYLINE,15
+    JGE NNNNOCHANGE
+    MOV NNNYLINE,196
+    MOV NNNY2LINE,196 
+    
+    MOV BX,RANDNUMBER
+    MOV NNNXLINE,BX
+    MOV NNNX1LINE,BX 
+
+    INC SCORE
+    CALL UPDATE_SCORE_MSG
+    
+    NNNNOCHANGE:
+    RET
+NEXT_NNNXLINE ENDP
+
+; =============================
+; RETRASO Y CONTROL DE TIEMPO
+; =============================
+
+DELAY PROC    
+    MOV AX,00H
+    INT 1AH
+    MOV TIK,DX
+    ADD TIK,1H
+
+    DELAY1:
+    MOV AX,00H
+    INT 1AH
+    CMP TIK,DX
+    JGE DELAY1
+    
+    CMP CHECK,0
+    JE DDD
+    MOV AH,7
+    INT 21H
+    DEC CHECK
+
+    DDD:
+    RET
+DELAY ENDP
+
+END MAIN
